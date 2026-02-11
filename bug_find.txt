@@ -303,5 +303,26 @@ A new row is created as before
 
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+6. Bug: Bulk Add Items Bypasses Slot Capacity Validation
+Issue
 
+bulk_add_items() allowed adding items beyond slot capacity because no validation was performed.
+
+Impact
+
+Slot capacity could be exceeded
+
+Business rules were inconsistent
+
+Inventory became inaccurate
+
+Fix
+
+Calculated total quantity before insert
+
+Added capacity validation
+
+Updated current_item_count
+
+Committed transaction once
 
