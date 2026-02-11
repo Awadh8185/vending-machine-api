@@ -1,0 +1,222 @@
+1️⃣ Bug: Wrong Slot Capacity Validation
+🔍 Issue
+
+The logic for validating slot capacity while adding items was incorrect.
+
+It either:
+
+Used incorrect comparison logic
+
+Compared against wrong limit
+
+Allowed inconsistent behavior when adding items
+
+This caused:
+
+Incorrect acceptance/rejection of item additions
+
+Violation of business rule: “Total items must not exceed slot capacity”
+
+🚨 Impact
+
+Slot capacity could be exceeded
+
+Or valid additions were wrongly rejected
+
+Inventory integrity compromised
+
+✅ Fix
+
+Updated validation to:
+
+if slot.current_item_count + data.quantity > slot.capacity:
+    raise ValueError("capacity_exceeded")
+
+
+Now:
+
+Capacity strictly enforced
+
+Business rule matches API specification
+
+Correct HTTP error returned
+
+2️⃣ Bug: Slot Deletion Allowed When Items Exist
+🔍 Issue
+
+Slot deletion logic allowed deletion even when items were present.
+
+Original behavior:
+
+db.delete(slot)
+db.commit()
+
+
+There was no check for existing inventory.
+
+🚨 Impact
+
+Slot with items could be deleted
+
+Risk of orphaned records
+
+Business rule violation
+
+Data integrity issue
+
+Specification clearly states:
+
+Cannot delete slot if it contains items
+
+✅ Fix
+
+Added validation before deletion:
+
+if slot.current_item_count > 0:
+    raise ValueError("slot_not_empty")
+
+
+Now:
+
+Deletion blocked if inventory exists
+
+Correct 400 error returned
+
+Business rule enforced properly
+
+
+3️⃣ Bug: Purchase Race Condition (Double Sell)
+🔍 Issue
+
+Original purchase logic followed this pattern:
+
+item = db.query(Item).filter(Item.id == item_id).first()
+
+if item.quantity <= 0:
+    raise ValueError("out_of_stock")
+
+item.quantity -= 1
+db.commit()
+
+
+This caused a race condition:
+
+Two users could read quantity = 1
+
+Both pass stock check
+
+Both decrement
+
+Result: overselling item
+
+🚨 Impact
+
+Negative stock possible
+
+Double selling
+
+Financial inconsistency
+
+Inventory corruption
+
+This is a classic concurrency bug.
+
+✅ Fix (SQLite-Compatible Atomic Update)
+
+Since SQLite does not support row-level locking (SELECT FOR UPDATE), I implemented an atomic update:
+
+rows_updated = (
+    db.query(Item)
+    .filter(Item.id == item_id, Item.quantity > 0)
+    .update({Item.quantity: Item.quantity - 1})
+)
+
+if rows_updated == 0:
+    raise ValueError("out_of_stock")
+
+
+Why this works:
+
+Stock check and decrement happen in one database operation
+
+If quantity is already 0, update fails
+
+No double sell possible
+
+Also added transaction safety:
+
+except:
+    db.rollback()
+    raise
+
+
+Now purchase operation is:
+
+Atomic
+
+Race-condition safe
+
+Transactionally consistent
+
+
+4️⃣ Bug: Missing Denomination in SUPPORTED_DENOMINATIONS
+🔍 Issue
+
+Change breakdown logic was incorrect for certain values.
+
+Example:
+
+Change = 37
+
+
+Expected:
+
+20 + 10 + 5 + 2
+
+
+Actual output:
+
+20 + 10 + 5
+
+
+Remaining 2 was ignored.
+
+🚨 Root Cause
+
+Runtime configuration loaded:
+
+SUPPORTED_DENOMINATIONS = [5, 10, 20, 50, 100]
+
+
+Values 1 and 2 were missing.
+
+🚨 Impact
+
+Incorrect change calculation
+
+Financial accuracy issue
+
+Business rule violation
+
+✅ Fix
+
+Updated configuration:
+
+SUPPORTED_DENOMINATIONS = [1, 2, 5, 10, 20, 50, 100]
+
+
+After fix:
+
+{
+  "change": 37,
+  "denominations": {
+    "20": 1,
+    "10": 1,
+    "5": 1,
+    "2": 1
+  }
+}
+
+
+Greedy algorithm now works correctly.
+
