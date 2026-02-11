@@ -228,3 +228,80 @@ After fix:
 
 Greedy algorithm now works correctly.
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+5.  Issue: Duplicate Items Allowed in a Single Slot
+
+While testing the POST /slots/{slot_id}/items endpoint, I discovered that the system allowed multiple items with the same name to be added to the same slot as separate database rows.
+
+Example
+
+Adding the following twice:
+
+{
+  "name": "Pepsi",
+  "price": 10,
+  "quantity": 2
+}
+
+
+Resulted in:
+
+[
+  { "name": "Pepsi", "quantity": 2 },
+  { "name": "Pepsi", "quantity": 2 }
+]
+
+
+Instead of:
+
+{ "name": "Pepsi", "quantity": 4 }
+
+🚨 Why This Is a Problem
+
+A vending machine slot should contain only one product type
+
+Duplicate rows create ambiguity during purchase
+
+Capacity calculations may become inconsistent
+
+Inventory management becomes inaccurate
+
+Can lead to unexpected behavior under concurrent operations
+
+This violates expected business logic:
+
+One slot = One product type = One aggregated quantity
+
+✅ Fix Implemented
+
+Before creating a new item, the system now checks whether an item with the same name already exists in the slot.
+
+Added Condition:
+existing_item = db.query(Item).filter(
+    Item.slot_id == slot_id,
+    Item.name == data.name
+).first()
+
+if existing_item:
+    existing_item.quantity += data.quantity
+    slot.current_item_count += data.quantity
+    db.commit()
+    db.refresh(existing_item)
+    return existing_item
+
+
+If the item already exists:
+
+Quantity is increased
+
+No new row is created
+
+If the item does not exist:
+
+A new row is created as before
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
