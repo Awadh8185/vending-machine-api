@@ -41,6 +41,11 @@ Business rule matches API specification
 
 Correct HTTP error returned
 
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+
 2️⃣ Bug: Slot Deletion Allowed When Items Exist
 🔍 Issue
 
@@ -83,6 +88,9 @@ Deletion blocked if inventory exists
 Correct 400 error returned
 
 Business rule enforced properly
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 3️⃣ Bug: Purchase Race Condition (Double Sell)
@@ -157,7 +165,7 @@ Atomic
 Race-condition safe
 
 Transactionally consistent
-
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 4️⃣ Bug: Missing Denomination in SUPPORTED_DENOMINATIONS
 🔍 Issue
